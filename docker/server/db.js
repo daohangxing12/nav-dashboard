@@ -91,6 +91,15 @@ function initDatabase() {
     db.exec(`CREATE INDEX IF NOT EXISTS idx_site_tags_site_id ON site_tags(site_id)`);
     db.exec(`CREATE INDEX IF NOT EXISTS idx_site_tags_tag_id ON site_tags(tag_id)`);
 
+    // ==================== 数据库迁移：添加新字段 ====================
+    // 检查 sites 表是否有 click_count 字段，没有则添加
+    const columns = db.prepare("PRAGMA table_info(sites)").all();
+    const hasClickCount = columns.some(col => col.name === 'click_count');
+    if (!hasClickCount) {
+        db.exec(`ALTER TABLE sites ADD COLUMN click_count INTEGER DEFAULT 0`);
+        console.log('✅ 已添加 click_count 字段');
+    }
+
     // 插入默认数据（如果表为空）
     const categoryCount = db.prepare('SELECT COUNT(*) as count FROM categories').get();
     if (categoryCount.count === 0) {
