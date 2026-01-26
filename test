@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         Zampto Auto Renew (Stable Flow v2.6)
+// @name         Zampto Auto Renew (Stable Flow v2.7)
 // @namespace    http://tampermonkey.net/
-// @version      2.6
-// @description  自动续期：增加续期后时间检测逻辑，精准判定成功并记录日志
+// @version      2.7
+// @description  修复时间抓取异常：精准过滤 HTML 标签，确保日志只显示 Expiry 时间
 // @author       Gemini
 // @match        https://dash.zampto.net/server?id=2574*
 // @grant        none
@@ -11,32 +11,15 @@
 (function() {
     'use strict';
 
-    // --- 1. 配置参数 ---
     const CONFIG = {
         targetId: '2574',
         cleanUrl: 'https://dash.zampto.net/server?id=2574',
         refreshInterval: 30 * 60 * 1000, 
-        storageKey: 'zampto_stable_v2_6',
-
-        // 选择器
+        storageKey: 'zampto_stable_v2_7',
         btnRenewText: "Renew Server",
-        expiryTextSelector: 'p:contains("Expiry"), div:contains("Expiry")', // 匹配包含 Expiry 的行
-        alertSelector: '.alert',
         renewWaitTime: 24 * 60 * 60 * 1000 
     };
 
-    // 辅助函数：提取时间字符串中的小时数（用于比对成功）
-    function parseExpiryHours(text) {
-        const match = text.match(/(\d+)\s*day|(\d+)\s*h|(\d+)\s*m/g);
-        if (!match) return 0;
-        let totalMinutes = 0;
-        text.replace(/(\d+)\s*day/g, (_, d) => totalMinutes += d * 1440);
-        text.replace(/(\d+)\s*h/g, (_, h) => totalMinutes += h * 60);
-        text.replace(/(\d+)\s*m/g, (_, m) => totalMinutes += parseInt(m));
-        return totalMinutes;
-    }
-
-    // --- 2. 初始化数据 ---
     let data = JSON.parse(localStorage.getItem(CONFIG.storageKey)) || {
         nextRunTime: 0,
         logs: [],
@@ -46,17 +29,40 @@
     };
 
     let isBusy = false;
-    let refreshTimer = null;
 
-    // --- 3. UI 构建 (完整保留 v2.5 样式) ---
+    // --- 工具函数：精准提取时间 ---
+    function getCleanExpiryText() {
+        // 查找包含 "Expiry" 且不包含 "function" 或 "script" 的可见元素
+        const elements = Array.from(document.querySelectorAll('p, div, span, li'));
+        const target = elements.find(el => 
+            el.textContent.includes('Expiry') && 
+            !el.textContent.includes('function') && 
+            el.children.length < 5 // 排除大型容器
+        );
+        
+        if (!target) return "未知时间";
+        
+        // 只提取 Expiry 所在的那一行文字，去掉可能的子脚本内容
+        let rawText = target.innerText || target.textContent;
+        let cleanText = rawText.split('\n')[0].trim(); 
+        return cleanText;
+    }
+
+    function parseToMinutes(text) {
+        let total = 0;
+        const dayMatch = text.match(/(\d+)\s*day/);
+        const hourMatch = text.match(/(\d+)\s*h/);
+        const minMatch = text.match(/(\d+)\s*m/);
+        if (dayMatch) total += parseInt(dayMatch[1]) * 1440;
+        if (hourMatch) total += parseInt(hourMatch[1]) * 60;
+        if (minMatch) total += parseInt(minMatch[1]);
+        return total;
+    }
+
+    // --- UI 构建 (保持一致) ---
     const style = document.createElement('style');
     style.innerHTML = `
-        #kb-panel {
-            position: fixed; bottom: 10px; right: 10px; width: 380px;
-            background: #080808; color: #ccc; z-index: 999999;
-            border: 1px solid #333; border-radius: 6px; padding: 10px;
-            font-family: monospace; font-size: 12px; box-shadow: 0 -5px 20px rgba(0,0,0,0.9);
-        }
+        #kb-panel { position: fixed; bottom: 10px; right: 10px; width: 380px; background: #080808; color: #ccc; z-index: 999999; border: 1px solid #333; border-radius: 6px; padding: 10px; font-family: monospace; font-size: 12px; box-shadow: 0 -5px 20px rgba(0,0,0,0.9); }
         #kb-header { display: flex; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px solid #333; padding-bottom: 5px; }
         .kb-btn { cursor: pointer; border: none; padding: 5px 10px; border-radius: 3px; font-weight: bold; margin-right: 5px; }
         .kb-btn-run { background: #198754; color: white; }
@@ -65,16 +71,16 @@
         .log-time { color: #555; margin-right: 5px; }
         .log-step { color: #6f42c1; font-weight: bold; border-left: 3px solid #6f42c1; padding-left: 5px; display: block; margin-top: 2px;}
         .log-success { color: #198754; font-weight: bold; }
-        .log-error { color: #dc3545; background: rgba(220, 53, 69, 0.1); }
+        .log-error { color: #dc3545; }
     `;
     document.head.appendChild(style);
 
     const panel = document.createElement('div');
     panel.id = 'kb-panel';
     panel.innerHTML = `
-        <div id="kb-header"><span style="color:#6f42c1;">⚓ Zampto V2.6 (Auto-Check)</span><button id="kb-hide" style="background:none;border:none;color:#666;cursor:pointer;">[-]</button></div>
+        <div id="kb-header"><span style="color:#6f42c1;">⚓ Zampto V2.7 (Fix Log)</span><button id="kb-hide" style="background:none;border:none;color:#666;cursor:pointer;">[-]</button></div>
         <div id="kb-content">
-            <div id="kb-status" style="margin-bottom:8px; padding:5px; background:#222;">初始化...</div>
+            <div id="kb-status" style="margin-bottom:8px; padding:5px; background:#222;">载入中...</div>
             <div><button id="kb-manual" class="kb-btn kb-btn-run">重置并运行</button><button id="kb-pause" class="kb-btn kb-btn-pause">暂停</button></div>
             <div id="kb-logs"></div>
         </div>
@@ -90,119 +96,73 @@
         content: document.getElementById('kb-content')
     };
 
-    // --- 4. 工具函数 ---
-    function saveData() { localStorage.setItem(CONFIG.storageKey, JSON.stringify(data)); }
     function log(msg, type = 'info') {
         const time = new Date().toLocaleTimeString('en-GB');
         data.logs.unshift({ time, msg, type });
         if (data.logs.length > 50) data.logs.pop();
-        saveData();
+        localStorage.setItem(CONFIG.storageKey, JSON.stringify(data));
         renderLogs();
     }
+
     function renderLogs() {
         ui.logs.innerHTML = data.logs.map(l => `<div><span class="log-time">[${l.time}]</span><span class="log-${l.type}">${l.msg}</span></div>`).join('');
-    }
-    function updateStatus(text, color = '#fff') { ui.status.innerHTML = text; ui.status.style.color = color; }
-    function formatTime(ms) {
-        const h = Math.floor(ms / 3600000);
-        const m = Math.floor((ms % 3600000) / 60000);
-        const s = Math.floor((ms % 60000) / 1000);
-        return `${h}h ${m}m ${s}s`;
-    }
-
-    // 获取当前页面显示的 Expiry 剩余时间
-    function getCurrentExpiryInfo() {
-        const elements = Array.from(document.querySelectorAll('p, div, span'));
-        const expiryElement = elements.find(el => el.textContent.includes('Expiry'));
-        return expiryElement ? expiryElement.textContent : "";
-    }
-
-    // --- 5. 核心逻辑 ---
-
-    async function checkResult() {
-        isBusy = true;
-        log("🔍 正在验证续期结果...", "step");
-        await new Promise(r => setTimeout(r, 5000)); // 等待5秒让页面更新状态
-
-        const newExpiryText = getCurrentExpiryInfo();
-        const newMinutes = parseExpiryHours(newExpiryText);
-
-        // 如果当前分钟数大于之前记录的分钟数，或者页面刷新后时间明显恢复到 1day+
-        if (newMinutes > data.lastExpiryMinutes || newMinutes > 2400) { 
-            log(`✅ 续期成功! 当前有效期: ${newExpiryText.replace('Expiry (Next Renewal):', '').trim()}`, "success");
-            data.nextRunTime = Date.now() + CONFIG.renewWaitTime;
-            data.status = 'idle';
-            saveData();
-            log("🔄 5秒后刷新页面进入待机状态...", "step");
-            setTimeout(() => { window.location.href = CONFIG.cleanUrl; }, 5000);
-        } else {
-            log("⚠️ 时间未显著增加，可能点击未生效，准备重试...", "warn");
-            data.status = 'idle';
-            isBusy = false;
-            saveData();
-        }
     }
 
     async function executeRenew() {
         isBusy = true;
+        const currentText = getCleanExpiryText();
+        data.lastExpiryMinutes = parseToMinutes(currentText);
         
-        // 记录点击前的时间
-        const oldExpiryText = getCurrentExpiryInfo();
-        data.lastExpiryMinutes = parseExpiryHours(oldExpiryText);
-        log(`📊 点击前剩余时间: ${oldExpiryText.replace('Expiry (Next Renewal):', '').trim()}`, "info");
-
-        log("👀 观察期 (5s)...", "step");
+        log(`📊 当前有效期: ${currentText}`, "info");
+        log("👀 观察并等待加载 (5s)...", "step");
         await new Promise(r => setTimeout(r, 5000));
-
-        data.status = 'renewing';
-        saveData();
 
         const btn = Array.from(document.querySelectorAll('button, a')).find(el => el.textContent.includes(CONFIG.btnRenewText));
         
         if (btn) {
-            log("🖱️ 执行点击: Renew Server", "step");
+            data.status = 'renewing';
+            log("🖱️ 点击续期按钮", "step");
             btn.click();
-            log("🚀 已发送点击指令，等待 10s 检测...", "info");
-            await new Promise(r => setTimeout(r, 10000));
-            await checkResult();
+            
+            log("🚀 等待 12s 同步服务器时间...", "info");
+            await new Promise(r => setTimeout(r, 12000));
+            
+            const postText = getCleanExpiryText();
+            const postMinutes = parseToMinutes(postText);
+
+            if (postMinutes > data.lastExpiryMinutes || postMinutes > 2000) {
+                log(`✅ 续期成功! 新有效期: ${postText}`, "success");
+                data.nextRunTime = Date.now() + CONFIG.renewWaitTime;
+                data.status = 'idle';
+                setTimeout(() => location.reload(), 5000);
+            } else {
+                log("⚠️ 时间未变，可能是面板延迟，5分钟后重试", "warn");
+                data.nextRunTime = Date.now() + (5 * 60 * 1000);
+                data.status = 'idle';
+                isBusy = false;
+            }
         } else {
-            log("❌ 找不到按钮，刷新重试", "error");
-            isBusy = false;
-            data.status = 'idle';
-            saveData();
+            log("❌ 未找到按钮，尝试刷新", "error");
             location.reload();
         }
     }
 
     function loop() {
-        if (data.isPaused) { updateStatus("🔴 暂停中", "#ff4444"); return; }
-        if (isBusy) { updateStatus("⚙️ 处理中...", "#6f42c1"); return; }
-
+        if (data.isPaused || isBusy) return;
         const now = Date.now();
         const diff = data.nextRunTime - now;
-
         if (diff > 0) {
-            updateStatus(`⏳ 下次执行: ${formatTime(diff)}`);
+            ui.status.innerHTML = `⏳ 倒计时: ${Math.floor(diff/3600000)}h ${Math.floor((diff%3600000)/60000)}m ${Math.floor((diff%60000)/1000)}s`;
             return;
         }
-
         executeRenew();
     }
 
-    // --- 6. 事件绑定 ---
-    ui.btnManual.addEventListener('click', () => {
-        data.nextRunTime = 0; data.status = 'idle'; data.logs = []; saveData(); location.reload();
-    });
-    ui.btnPause.addEventListener('click', () => {
-        data.isPaused = !data.isPaused; ui.btnPause.innerText = data.isPaused ? "恢复" : "暂停"; saveData();
-    });
-    ui.btnHide.addEventListener('click', () => {
-        ui.content.style.display = ui.content.style.display === 'none' ? 'block' : 'none';
-        ui.btnHide.innerText = ui.content.style.display === 'none' ? '[+]' : '[-]';
-    });
+    ui.btnManual.addEventListener('click', () => { data.nextRunTime = 0; data.logs = []; location.reload(); });
+    ui.btnPause.addEventListener('click', () => { data.isPaused = !data.isPaused; ui.btnPause.innerText = data.isPaused ? "恢复" : "暂停"; });
+    ui.btnHide.addEventListener('click', () => { ui.content.style.display = ui.content.style.display === 'none' ? 'block' : 'none'; });
 
-    // 启动
     renderLogs();
-    log("🤖 Zampto v2.6 系统就绪", "info");
+    log("🤖 Zampto v2.7 就绪 (已修复抓取逻辑)", "info");
     setInterval(loop, 1000);
 })();
