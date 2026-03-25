@@ -29,7 +29,21 @@ router.get('/export', requireAuth, (req, res) => {
         `).all();
 
         const sites = db.prepare(`
-            SELECT id, name, url, description, logo, category_id, sort_order FROM sites ORDER BY sort_order ASC
+            SELECT
+                id,
+                name,
+                url,
+                description,
+                logo,
+                category_id,
+                sort_order,
+                click_count,
+                last_check_status,
+                last_check_http_status,
+                last_check_error,
+                last_check_at
+            FROM sites
+            ORDER BY sort_order ASC
         `).all();
 
         const tags = db.prepare(`
@@ -89,10 +103,37 @@ router.post('/import', requireAuth, (req, res) => {
 
             // 导入站点
             const siteIdMap = {};
-            const insertSite = db.prepare(`INSERT INTO sites (name, url, description, logo, category_id, sort_order) VALUES (?, ?, ?, ?, ?, ?)`);
+            const insertSite = db.prepare(`
+                INSERT INTO sites (
+                    name,
+                    url,
+                    description,
+                    logo,
+                    category_id,
+                    sort_order,
+                    click_count,
+                    last_check_status,
+                    last_check_http_status,
+                    last_check_error,
+                    last_check_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `);
             for (const site of data.sites) {
                 const newCategoryId = site.category_id ? categoryIdMap[site.category_id] : null;
-                const result = insertSite.run(site.name, site.url, site.description || '', site.logo || '', newCategoryId, site.sort_order || 0);
+                const result = insertSite.run(
+                    site.name,
+                    site.url,
+                    site.description || '',
+                    site.logo || '',
+                    newCategoryId,
+                    site.sort_order || 0,
+                    Number.isInteger(site.click_count) ? site.click_count : 0,
+                    ['unchecked', 'success', 'failed'].includes(site.last_check_status) ? site.last_check_status : 'unchecked',
+                    Number.isInteger(site.last_check_http_status) ? site.last_check_http_status : null,
+                    site.last_check_error || null,
+                    site.last_check_at || null
+                );
                 siteIdMap[site.id] = result.lastInsertRowid;
             }
 
