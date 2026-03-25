@@ -792,14 +792,15 @@
             const hasLocalSession = sessionStorage.getItem('editModeUnlocked') === 'true' ||
                 (sessionStorage.getItem('adminLoggedIn') === 'true' && !isSessionExpired());
 
-            if (!hasLocalSession) {
+            const isServerAuthenticated = await ensureServerAuth();
+
+            if (!hasLocalSession && !isServerAuthenticated) {
                 sessionStorage.removeItem('adminLoggedIn');
                 sessionStorage.removeItem('adminLoginTime');
                 window.location.href = '/';
                 return;
             }
 
-            const isServerAuthenticated = await ensureServerAuth();
             if (!isServerAuthenticated) {
                 sessionStorage.removeItem('adminLoggedIn');
                 sessionStorage.removeItem('adminLoginTime');

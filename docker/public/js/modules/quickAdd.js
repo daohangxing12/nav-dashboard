@@ -12,6 +12,16 @@ const DEFAULT_ICON = '/default-icon.png';
 let pendingQuickAddAction = null;
 // 标记是否为管理后台验证
 let pendingAdminRedirect = false;
+let pendingAdminWindow = null;
+
+function openAdminPageInNewTab() {
+    const adminWindow = window.open('/admin.html', '_blank');
+    if (!adminWindow) {
+        window.location.href = '/admin.html';
+        return null;
+    }
+    return adminWindow;
+}
 
 /**
  * 初始化编辑模式
@@ -89,11 +99,12 @@ export function initEditMode() {
 
             // 如果已经验证过，直接跳转
             if (sessionStorage.getItem('editModeUnlocked') === 'true') {
-                window.location.href = '/admin.html';
+                openAdminPageInNewTab();
             } else {
                 // 需要验证密码
                 pendingAdminRedirect = true;
                 pendingQuickAddAction = null;
+                pendingAdminWindow = openAdminPageInNewTab();
                 // 延迟显示密码框，避免被 document click 事件关闭
                 setTimeout(() => {
                     showPasswordModal('⚙️ 管理后台', '输入管理密码以进入后台');
@@ -118,7 +129,13 @@ export function initEditMode() {
             passwordModal.style.display = 'none';
             passwordInput.value = '';
             passwordError.textContent = '';
+
+            if (pendingAdminRedirect && pendingAdminWindow && !pendingAdminWindow.closed) {
+                pendingAdminWindow.close();
+            }
+
             pendingAdminRedirect = false;
+            pendingAdminWindow = null;
         });
     }
 
@@ -128,7 +145,13 @@ export function initEditMode() {
             if (e.target === passwordModal) {
                 passwordModal.style.display = 'none';
                 passwordInput.value = '';
+
+                if (pendingAdminRedirect && pendingAdminWindow && !pendingAdminWindow.closed) {
+                    pendingAdminWindow.close();
+                }
+
                 pendingAdminRedirect = false;
+                pendingAdminWindow = null;
             }
         });
     }
@@ -154,7 +177,15 @@ async function handleVerifyPassword() {
             // 如果是管理后台验证，跳转到管理页面
             if (pendingAdminRedirect) {
                 pendingAdminRedirect = false;
-                window.location.href = '/admin.html';
+
+                if (pendingAdminWindow && !pendingAdminWindow.closed) {
+                    pendingAdminWindow.location.href = '/admin.html';
+                    pendingAdminWindow.focus();
+                } else {
+                    openAdminPageInNewTab();
+                }
+
+                pendingAdminWindow = null;
                 return;
             }
 
