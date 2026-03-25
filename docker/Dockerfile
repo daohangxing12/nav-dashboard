@@ -10,7 +10,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # 安装生产依赖（包括编译原生模块）
-RUN npm ci --omit=dev
+RUN npm install --only=production
 
 # ============ 运行阶段 ============
 FROM node:18-alpine
