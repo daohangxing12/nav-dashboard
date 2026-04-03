@@ -1,40 +1,31 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
-  <defs>
-    <!-- 主渐变：暖色调 -->
-    <linearGradient id="warmGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#667eea"/>
-      <stop offset="50%" style="stop-color:#764ba2"/>
-      <stop offset="100%" style="stop-color:#ff9a56"/>
-    </linearGradient>
-    <!-- 玻璃高光 -->
-    <linearGradient id="glassShine" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" style="stop-color:white;stop-opacity:0.4"/>
-      <stop offset="50%" style="stop-color:white;stop-opacity:0.1"/>
-      <stop offset="100%" style="stop-color:white;stop-opacity:0"/>
-    </linearGradient>
-  </defs>
-  
-  <!-- 背景：圆角矩形 -->
-  <rect width="32" height="32" rx="7" fill="url(#warmGrad)"/>
-  
-  <!-- 玻璃高光效果 -->
-  <rect x="2" y="2" width="28" height="14" rx="5" fill="url(#glassShine)"/>
-  
-  <!-- 导航指针图标 -->
-  <g transform="translate(16,16)">
-    <!-- 外圈：信息网格感 -->
-    <circle cx="0" cy="0" r="10" fill="none" stroke="white" stroke-width="1.5" stroke-opacity="0.3"/>
-    
-    <!-- 四个方向点 -->
-    <circle cx="0" cy="-10" r="1.5" fill="white" opacity="0.9"/>
-    <circle cx="10" cy="0" r="1.2" fill="white" opacity="0.6"/>
-    <circle cx="0" cy="10" r="1.2" fill="white" opacity="0.6"/>
-    <circle cx="-10" cy="0" r="1.2" fill="white" opacity="0.6"/>
-    
-    <!-- 中心导航针 -->
-    <path d="M0,-7 L3,4 L0,2 L-3,4 Z" fill="white" opacity="0.95"/>
-    
-    <!-- 中心点 -->
-    <circle cx="0" cy="0" r="2" fill="white"/>
-  </g>
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 20010904//EN"
+ "http://www.w3.org/TR/2001/REC-SVG-20010904/DTD/svg10.dtd">
+<svg version="1.0" xmlns="http://www.w3.org/2000/svg"
+ width="1040.000000pt" height="1040.000000pt" viewBox="0 0 1040.000000 1040.000000"
+ preserveAspectRatio="xMidYMid meet">
+
+<g transform="translate(0.000000,1040.000000) scale(0.100000,-0.100000)"
+fill="#000000" stroke="none">
+<path d="M5025 7140 c-187 -55 -350 -101 -362 -105 l-23 -5 0 -285 0 -285
+-215 0 -215 0 0 -285 0 -285 215 0 215 0 0 -677 c0 -708 3 -769 46 -913 59
+-199 208 -364 395 -434 216 -81 611 -80 832 1 l67 25 0 283 0 283 -72 -31
+c-67 -28 -83 -31 -188 -31 -110 -1 -117 0 -170 30 -62 35 -110 96 -137 177
+-16 47 -18 116 -21 670 l-3 617 296 0 295 0 0 285 0 285 -295 0 -295 0 0 390
+c0 306 -3 390 -12 389 -7 -1 -166 -45 -353 -99z"/>
+<path d="M2998 6505 c-134 -23 -243 -67 -363 -148 -74 -51 -179 -156 -227
+-229 -69 -104 -68 -106 -68 126 l0 206 -377 -2 -378 -3 -3 -1292 -2 -1293 380
+0 379 0 4 803 c3 885 0 841 69 985 34 72 129 179 191 215 173 100 417 78 540
+-48 55 -57 101 -151 129 -265 8 -30 13 -311 17 -865 l6 -820 375 -3 375 -2 -3
+892 c-2 830 -4 902 -22 1013 -59 368 -232 605 -510 699 -129 44 -355 57 -512
+31z"/>
+<path d="M7043 6495 c-261 -55 -442 -153 -630 -342 -278 -281 -414 -694 -382
+-1161 36 -504 248 -856 635 -1051 323 -162 861 -186 1306 -57 102 30 268 100
+279 118 10 16 12 548 2 548 -4 0 -45 -20 -92 -44 -198 -101 -423 -156 -639
+-156 -272 0 -444 54 -580 184 -80 76 -144 216 -157 348 l-7 68 848 2 849 3 -1
+260 c-1 294 -12 386 -71 565 -61 184 -130 297 -263 431 -213 214 -474 310
+-840 308 -111 -1 -171 -6 -257 -24z m416 -515 c129 -38 217 -122 265 -250 30
+-80 49 -189 44 -255 l-3 -50 -485 -3 c-267 -1 -490 0 -496 2 -8 3 -7 21 2 63
+52 243 199 430 388 494 72 25 201 24 285 -1z"/>
+</g>
 </svg>
