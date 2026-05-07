@@ -10,7 +10,7 @@ bucket = "./public"
 [[d1_databases]]
 binding = "DB"
 database_name = "nav-dashboard-db"
-database_id = "1ceb5072-5a0f-455c-8e31-bda626b8af67"
+database_id = "82975c60-30ab-4a4d-a03c-fcdc22291805"
 
 # KV 命名空间绑定
 [[kv_namespaces]]
